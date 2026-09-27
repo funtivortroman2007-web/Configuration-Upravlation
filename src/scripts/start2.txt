@@ -1,0 +1,6 @@
+ls
+unknown_cmd
+cd
+ls /tmp
+this_is_broken_too
+exit

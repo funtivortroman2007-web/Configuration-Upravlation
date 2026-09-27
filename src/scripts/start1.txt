@@ -1,0 +1,6 @@
+# базовый тест
+ls
+cd /home
+pwd
+echo hello world
+exit

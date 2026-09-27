@@ -1,6 +1,8 @@
 #!/bin/sh
 
-set -eu
+set -e
+cd "$(dirname "$0")"
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec python3 "$SCRIPT_DIR/src/Stage_1.py"
+PYTHON="${PYTHON:-python3}"
+
+exec "$PYTHON" src/main.py "$@"

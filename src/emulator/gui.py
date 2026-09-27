@@ -22,8 +22,8 @@ def execute_command(
 	"""Execute one stage-1 command and return text for the terminal output."""
 	try:
 		parts = parse_command(command_line)
-	except ValueError as error:
-		return f"Ошибка разбора команды: {error}"
+	except ValueError as e:
+		return f"Ошибка разбора команды: {e}"
 
 	if not parts:
 		return ""

@@ -1,4 +1,4 @@
-from emulator.config import parse_args, print_debug_banner
+from emulator.config import parse_args
 from emulator.gui import ShellEmulator
 
 import tkinter as tk
@@ -6,7 +6,6 @@ import tkinter as tk
 
 def main() -> None:
     args = parse_args()
-    print_debug_banner(args)
 
     root = tk.Tk()
     ShellEmulator(root, args)

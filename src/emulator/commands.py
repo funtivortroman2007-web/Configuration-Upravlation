@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import posixpath
+import re
 import shlex
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -47,6 +48,57 @@ def _render_tree(vfs: VirtualFileSystem, root: str, label: str) -> str:
     ))
     return "\n".join(lines)
 
+
+def _format_mode(mode: int, is_directory: bool) -> str:
+    permissions = [
+        "r" if mode & 0o400 else "-",
+        "w" if mode & 0o200 else "-",
+        "x" if mode & 0o100 else "-",
+        "r" if mode & 0o040 else "-",
+        "w" if mode & 0o020 else "-",
+        "x" if mode & 0o010 else "-",
+        "r" if mode & 0o004 else "-",
+        "w" if mode & 0o002 else "-",
+        "x" if mode & 0o001 else "-",
+    ]
+    for bit, index, lower, upper in (
+        (0o4000, 2, "s", "S"),
+        (0o2000, 5, "s", "S"),
+        (0o1000, 8, "t", "T"),
+    ):
+        if mode & bit:
+            permissions[index] = lower if permissions[index] == "x" else upper
+    return ("d" if is_directory else "-") + "".join(permissions)
+
+
+def _apply_mode_spec(mode_spec: str, current_mode: int) -> int | None:
+    if re.fullmatch(r"[0-7]{3,4}", mode_spec):
+        return int(mode_spec, 8)
+
+    mode = current_mode
+    for clause in mode_spec.split(","):
+        match = re.fullmatch(r"([ugoa]*)([+=-])([rwx]*)", clause)
+        if not match:
+            return None
+        classes, operator, permissions = match.groups()
+        selected_classes = set("ugo" if not classes or "a" in classes else classes)
+        class_bits = {"u": (6, 0o700), "g": (3, 0o070), "o": (0, 0o007)}
+        selected_mask = 0
+        permission_mask = 0
+        for class_name in selected_classes:
+            shift, mask = class_bits[class_name]
+            selected_mask |= mask
+            for permission, value in (("r", 4), ("w", 2), ("x", 1)):
+                if permission in permissions:
+                    permission_mask |= value << shift
+        if operator == "+":
+            mode |= permission_mask
+        elif operator == "-":
+            mode &= ~permission_mask
+        else:
+            mode = (mode & ~selected_mask) | permission_mask
+    return mode
+
 @dataclass
 class EmulatorState:
     vfs_path: str | None = None
@@ -88,15 +140,27 @@ def execute_command(
         if state.vfs_error:
             return False, f"ls: {state.vfs_error}"
         if state.vfs:
-            if len(arguments) > 1:
+            if any(argument.startswith("-") and argument != "-l" for argument in arguments):
+                return False, "ls: поддерживается только параметр -l"
+            paths = [argument for argument in arguments if argument != "-l"]
+            if len(paths) > 1:
                 return False, "ls: укажите не более одного пути"
-            target = arguments[0] if arguments else "."
+            long_listing = "-l" in arguments
+            target = paths[0] if paths else "."
             directory = state.vfs.resolve(state.cwd, target)
             if state.vfs.is_file(directory):
-                return True, posixpath.basename(directory)
+                if not long_listing:
+                    return True, posixpath.basename(directory)
+                mode = state.vfs.get_mode(directory) or 0
+                return True, f"{_format_mode(mode, False)} {posixpath.basename(directory)}"
             items = state.vfs.list_directory(directory)
             if items is None:
                 return False, f"ls: каталог не найден: {target}"
+            if long_listing:
+                return True, "\n".join(
+                    f"{_format_mode(state.vfs.get_mode(posixpath.join(directory, name)) or 0, state.vfs.is_directory(posixpath.join(directory, name)))} {name}"
+                    for name in items
+                ) if items else "(Пусто)"
             return True, " ".join(items) if items else "(Пусто)"
         args = " ".join(arguments) if arguments else "(нет)"
         return True, f"ls: аргументы: {args}"
@@ -131,6 +195,24 @@ def execute_command(
         if not state.vfs.is_directory(root):
             return False, f"tree: каталог не найден: {target}"
         return True, _render_tree(state.vfs, root, target)
+
+    if command == "chmod":
+        if state.vfs_error:
+            return False, f"chmod: {state.vfs_error}"
+        if not state.vfs:
+            return False, "chmod: VFS не подключена"
+        if len(arguments) != 2:
+            return False, "Использование: chmod <режим> <путь>"
+        mode_spec, target = arguments
+        path = state.vfs.resolve(state.cwd, target)
+        current_mode = state.vfs.get_mode(path)
+        if current_mode is None:
+            return False, f"chmod: файл или каталог не найден: {target}"
+        new_mode = _apply_mode_spec(mode_spec, current_mode)
+        if new_mode is None:
+            return False, f"chmod: некорректный режим: {mode_spec}"
+        state.vfs.set_mode(path, new_mode)
+        return True, f"chmod: {mode_spec} {target}"
 
     if command == "uptime":
         if arguments:

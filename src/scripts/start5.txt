@@ -1,0 +1,17 @@
+# Stage 5: chmod changes VFS permission metadata in memory
+ls -l /home
+chmod 600 /home/welcome.txt
+ls -l /home/welcome.txt
+chmod u+x /home/welcome.txt
+ls -l /home/welcome.txt
+chmod g-w /home/welcome.txt
+chmod 750 /share/docs
+ls -l /share
+chmod 777 /share/docs
+ls -l /share
+chmod 888 /home/welcome.txt
+chmod 600 /missing
+chmod
+chmod 600 /home/welcome.txt /share/docs
+cat /home/welcome.txt
+exit

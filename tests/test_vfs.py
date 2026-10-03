@@ -68,6 +68,43 @@ class VirtualFileSystemTests(unittest.TestCase):
             (False, "uptime: команда не принимает аргументы"),
         )
 
+    def test_chmod_changes_file_and_directory_modes_only_in_memory(self):
+        image_path = REPOSITORY_ROOT / "src" / "vfs" / "nested.csv"
+        original_csv = image_path.read_bytes()
+        welcome_path = "/home/welcome.txt"
+        self.assertEqual(self.state.vfs.get_mode(welcome_path), 0o644)
+        self.assertEqual(
+            self.run_command("chmod 600 /home/welcome.txt"),
+            (True, "chmod: 600 /home/welcome.txt"),
+        )
+        self.assertEqual(self.state.vfs.get_mode(welcome_path), 0o600)
+        self.assertEqual(
+            self.run_command("ls -l /home/welcome.txt"),
+            (True, "-rw------- welcome.txt"),
+        )
+        self.assertEqual(self.run_command("chmod u+x /home/welcome.txt")[0], True)
+        self.assertEqual(self.state.vfs.get_mode(welcome_path), 0o700)
+        self.assertEqual(self.run_command("chmod 750 /home")[0], True)
+        self.assertEqual(self.state.vfs.get_mode("/home"), 0o750)
+        self.assertEqual(image_path.read_bytes(), original_csv)
+
+    def test_chmod_supports_symbolic_clauses_and_reports_invalid_inputs(self):
+        self.assertEqual(self.run_command("chmod g-w /home/welcome.txt")[0], True)
+        self.assertEqual(self.state.vfs.get_mode("/home/welcome.txt"), 0o644 & ~0o020)
+        self.assertEqual(self.run_command("chmod a=rwx /share")[0], True)
+        self.assertEqual(self.state.vfs.get_mode("/share"), 0o777)
+        self.assertEqual(
+            self.run_command("chmod 888 /home/welcome.txt"),
+            (False, "chmod: некорректный режим: 888"),
+        )
+        self.assertFalse(self.run_command("chmod 600 /missing")[0])
+        self.assertFalse(self.run_command("chmod 600")[0])
+        self.assertFalse(self.run_command("chmod 600 /home /share")[0])
+        self.assertEqual(
+            self.run_command("chmod 600 /home/welcome.txt extra"),
+            (False, "Использование: chmod <режим> <путь>"),
+        )
+
     def test_cat_reads_base64_decoded_text_and_binary_data(self):
         self.assertEqual(self.run_command("cat /home/welcome.txt"), (True, "Hello from home.\n"))
         self.assertEqual(
@@ -98,6 +135,17 @@ class VirtualFileSystemTests(unittest.TestCase):
         self.assertTrue(any("tree: каталог не найден" in line for line in output))
         self.assertTrue(any("cd: каталог не найден" in line for line in output))
         self.assertTrue(any("Ошибка разбора команды" in line for line in output))
+        self.assertTrue(any("завершен с ошибками" in line for line in output))
+
+    def test_stage_five_script_covers_chmod_modes_and_errors(self):
+        output = []
+        script = REPOSITORY_ROOT / "src" / "scripts" / "start5.txt"
+        run_script(str(script), self.state, output.append)
+        self.assertIn("-rw------- welcome.txt", output)
+        self.assertIn("-rwx------ welcome.txt", output)
+        self.assertTrue(any("chmod: некорректный режим" in line for line in output))
+        self.assertTrue(any("chmod: файл или каталог не найден" in line for line in output))
+        self.assertTrue(any("Использование: chmod" in line for line in output))
         self.assertTrue(any("завершен с ошибками" in line for line in output))
 
     def test_all_sample_csv_images_load(self):

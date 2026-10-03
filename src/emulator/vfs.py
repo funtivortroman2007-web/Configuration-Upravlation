@@ -16,6 +16,7 @@ class VFSLoadError(ValueError):
 class VirtualFileSystem:
     directories: set[str] = field(default_factory=lambda: {"/"})
     files: dict[str, bytes] = field(default_factory=dict)
+    modes: dict[str, int] = field(default_factory=lambda: {"/": 0o755})
 
     @classmethod
     def from_csv(cls, csv_path: str) -> VirtualFileSystem:
@@ -44,6 +45,7 @@ class VirtualFileSystem:
                             vfs.files[entry_path] = base64.b64decode(
                                 row["content"] or "", validate=True
                             )
+                            vfs.modes[entry_path] = 0o644
                         except (binascii.Error, ValueError) as error:
                             raise VFSLoadError(
                                 f"Некорректный Base64 в строке {line_number}"
@@ -73,6 +75,7 @@ class VirtualFileSystem:
             if parent in self.files:
                 raise VFSLoadError(f"Файл используется как каталог: {parent}")
             self.directories.add(parent)
+            self.modes.setdefault(parent, 0o755)
             parent = posixpath.dirname(parent)
 
     def _add_directory(self, entry_path: str) -> None:
@@ -80,6 +83,7 @@ class VirtualFileSystem:
             raise VFSLoadError(f"Путь уже занят файлом: {entry_path}")
         self._add_parent_directories(entry_path)
         self.directories.add(entry_path)
+        self.modes.setdefault(entry_path, 0o755)
 
     def resolve(self, cwd: str, target: str = ".") -> str:
         if target.startswith("/"):
@@ -102,6 +106,18 @@ class VirtualFileSystem:
 
     def is_file(self, path: str) -> bool:
         return path in self.files
+
+    def is_entry(self, path: str) -> bool:
+        return self.is_directory(path) or self.is_file(path)
+
+    def get_mode(self, path: str) -> int | None:
+        return self.modes.get(path)
+
+    def set_mode(self, path: str, mode: int) -> bool:
+        if not self.is_entry(path):
+            return False
+        self.modes[path] = mode
+        return True
 
     def read_file(self, path: str) -> bytes | None:
         return self.files.get(path)

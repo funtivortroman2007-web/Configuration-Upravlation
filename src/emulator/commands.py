@@ -1,9 +1,51 @@
 from __future__ import annotations
 
+import posixpath
 import shlex
 from dataclasses import dataclass, field
+from datetime import datetime
+import time
 
 from .vfs import VFSLoadError, VirtualFileSystem
+
+
+def _format_uptime(seconds: float, current_time: str) -> str:
+    total_seconds = max(0, int(seconds))
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    day_label = "day" if days == 1 else "days"
+    return (
+        f"{current_time} up {days} {day_label}, "
+        f"{hours:02}:{minutes:02}:{seconds:02}"
+    )
+
+
+def _render_tree(vfs: VirtualFileSystem, root: str, label: str) -> str:
+    lines = [label]
+    totals = {"directories": 0, "files": 0}
+
+    def visit(directory: str, prefix: str) -> None:
+        children = vfs.list_directory(directory) or []
+        for index, name in enumerate(children):
+            is_last = index == len(children) - 1
+            connector = "└── " if is_last else "├── "
+            child_path = posixpath.join(directory, name)
+            lines.append(f"{prefix}{connector}{name}")
+            if vfs.is_directory(child_path):
+                totals["directories"] += 1
+                visit(child_path, prefix + ("    " if is_last else "│   "))
+            else:
+                totals["files"] += 1
+
+    visit(root, "")
+    directory_label = "directory" if totals["directories"] == 1 else "directories"
+    file_label = "file" if totals["files"] == 1 else "files"
+    lines.extend((
+        "",
+        f"{totals['directories']} {directory_label}, {totals['files']} {file_label}",
+    ))
+    return "\n".join(lines)
 
 @dataclass
 class EmulatorState:
@@ -50,6 +92,8 @@ def execute_command(
                 return False, "ls: укажите не более одного пути"
             target = arguments[0] if arguments else "."
             directory = state.vfs.resolve(state.cwd, target)
+            if state.vfs.is_file(directory):
+                return True, posixpath.basename(directory)
             items = state.vfs.list_directory(directory)
             if items is None:
                 return False, f"ls: каталог не найден: {target}"
@@ -60,9 +104,9 @@ def execute_command(
     if command == "cd":
         if state.vfs_error:
             return False, f"cd: {state.vfs_error}"
+        if len(arguments) > 1:
+            return False, "cd: укажите не более одного пути"
         if state.vfs:
-            if len(arguments) > 1:
-                return False, "cd: укажите не более одного пути"
             target = arguments[0] if arguments else "/"
             directory = state.vfs.resolve(state.cwd, target)
             if not state.vfs.is_directory(directory):
@@ -74,6 +118,25 @@ def execute_command(
         else:
             state.cwd = arguments[0]
         return True, f"cd -> {state.cwd}"
+
+    if command == "tree":
+        if state.vfs_error:
+            return False, f"tree: {state.vfs_error}"
+        if not state.vfs:
+            return False, "tree: VFS не подключена"
+        if len(arguments) > 1:
+            return False, "tree: укажите не более одного пути"
+        target = arguments[0] if arguments else "."
+        root = state.vfs.resolve(state.cwd, target)
+        if not state.vfs.is_directory(root):
+            return False, f"tree: каталог не найден: {target}"
+        return True, _render_tree(state.vfs, root, target)
+
+    if command == "uptime":
+        if arguments:
+            return False, "uptime: команда не принимает аргументы"
+        current_time = datetime.now().strftime("%H:%M:%S")
+        return True, _format_uptime(time.monotonic(), current_time)
 
     if command == "pwd":
         return True, state.cwd

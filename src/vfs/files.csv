@@ -1,0 +1,6 @@
+path,type,content
+home,dir,
+home/welcome.txt,file,SGVsbG8gZnJvbSBob21lLgo=
+home/notes.txt,file,VGhlIHNlY29uZCBmaWxlLgo=
+tmp,dir,
+tmp/data.txt,file,VG1wIGZpbGUuCg==

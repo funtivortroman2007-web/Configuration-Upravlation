@@ -1,0 +1,8 @@
+path,type,content
+home,dir,
+home/welcome.txt,file,SGVsbG8gZnJvbSBob21lLgo=
+share,dir,
+share/docs,dir,
+share/docs/manual.txt,file,VGhpcyBpcyBhIG5lc3RlZCBtYW51YWwuCg==
+share/docs/assets,dir,
+share/docs/assets/data.bin,file,AAEC/w==

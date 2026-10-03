@@ -1,6 +1,24 @@
-# базовый тест
-ls
-cd /home
+# Полная демонстрация команд и VFS
+echo Проверка команд эмулятора
 pwd
-echo hello world
+ls
+ls /home
+cd home
+pwd
+ls
+cat welcome.txt
+cd ..
+cat /share/docs/manual.txt
+cd /share/docs/assets
+pwd
+ls
+cat data.bin
+cd
+pwd
+echo "Поддерживаются кавычки и пробелы"
+ls /missing
+cd /missing
+cat absent.txt
+unknown_command
+echo "незакрытая кавычка
 exit

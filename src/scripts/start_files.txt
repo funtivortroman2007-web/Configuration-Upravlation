@@ -1,0 +1,8 @@
+ls
+ls /home
+cd /tmp
+pwd
+cat data.txt
+cd /
+cat /home/notes.txt
+exit

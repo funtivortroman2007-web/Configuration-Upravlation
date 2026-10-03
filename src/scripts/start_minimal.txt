@@ -1,0 +1,4 @@
+ls
+cat hello.txt
+cat missing.txt
+exit

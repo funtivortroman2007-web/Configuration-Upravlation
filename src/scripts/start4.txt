@@ -1,0 +1,23 @@
+# Stage 4: basic shell commands, VFS navigation, and error handling
+pwd
+ls
+ls /home/welcome.txt
+ls /share/docs
+cd share
+pwd
+ls docs
+cd docs/assets
+pwd
+tree .
+tree /
+cd /
+tree /home/welcome.txt
+cd /home/welcome.txt
+ls /missing
+cd /missing
+tree /missing
+uptime
+uptime extra
+echo "Команды этапа 4 завершены"
+echo "незакрытая кавычка
+exit

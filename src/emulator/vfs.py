@@ -100,5 +100,8 @@ class VirtualFileSystem:
     def is_directory(self, path: str) -> bool:
         return path in self.directories
 
+    def is_file(self, path: str) -> bool:
+        return path in self.files
+
     def read_file(self, path: str) -> bytes | None:
         return self.files.get(path)

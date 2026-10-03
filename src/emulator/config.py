@@ -18,11 +18,15 @@ def parse_args(argv: list[str] | None = None) -> EmulatorConfig:
     )
     parser.add_argument(
         "--vfs", "-v",
-        default=None
+        default=None,
+        metavar="CSV",
+        help="путь к CSV-файлу виртуальной файловой системы",
     )
     parser.add_argument(
         "--script", "-s",
-        default=None
+        default=None,
+        metavar="PATH",
+        help="путь к стартовому скрипту эмулятора",
     )
     ns = parser.parse_args(argv)
     return EmulatorConfig(vfs_path=ns.vfs, script_path=ns.script)

@@ -49,7 +49,7 @@ class ShellEmulator:
             self.command_entry.configure(state=tk.DISABLED)
             self.root.after(50, self._run_startup_script)
         else:
-            self._emit("Эмулятор оболочки. Команды: ls, cd, pwd, echo, exit.")
+            self._emit("Эмулятор оболочки. Команды: ls, cd, pwd, echo, cat, exit.")
 
     def _emit(self, text: str) -> None:
         print(text)
